@@ -1,0 +1,24 @@
+# COE default constraint template (year2)
+# Second-year undergraduate constraints — balanced guidance and autonomy.
+name: year2
+description: "Second-year undergraduate constraints — balanced guidance and autonomy"
+
+financial:
+  max_spend: 15.0
+  currency: "USD"
+
+operational:
+  allowed_actions: ["read", "search", "draft"]
+  max_actions_per_hour: 100
+
+temporal:
+  max_duration_minutes: 180
+
+data_access:
+  allowed_paths: ["/course/", "/library/"]
+  allowed_classification: "public"
+  read_only: true
+
+communication:
+  allowed_channels: ["internal", "approved_sources"]
+  rate_limit_per_hour: 20

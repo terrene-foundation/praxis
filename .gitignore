@@ -1,0 +1,84 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# Build artifacts
+*.whl
+
+# Node (for web frontend)
+node_modules/
+.next/
+out/
+
+# Database
+*.db
+*.sqlite3
+
+# Secrets
+*.pem
+*.key
+!.env.example
+
+# Hypothesis (property-based testing cache)
+.hypothesis/
+
+# SQLite WAL/SHM
+*.db-shm
+*.db-wal
+
+# Flutter build artifacts
+apps/desktop/build/
+apps/mobile/build/
+apps/desktop/.dart_tool/
+apps/mobile/.dart_tool/
+apps/desktop/.flutter-plugins
+apps/desktop/.flutter-plugins-dependencies
+apps/mobile/.flutter-plugins
+apps/mobile/.flutter-plugins-dependencies
+packages/praxis_shared/.dart_tool/
+
+# Web build
+apps/web/dist/
+apps/web/node_modules/
+
+# Workspace session data (user-specific)
+workspaces/*/todos/
+workspaces/*/.session-notes
+
+# Firebase cache
+.firebase/
+firebase-debug.log

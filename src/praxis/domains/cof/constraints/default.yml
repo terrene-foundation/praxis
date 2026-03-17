@@ -1,0 +1,26 @@
+# COF default constraint template (advisory)
+# AI may provide investment recommendations. Human makes all decisions.
+name: advisory
+description: "AI may provide investment recommendations. Human makes all decisions."
+
+financial:
+  max_spend: 50.0
+  currency: "USD"
+  ai_may_recommend_positions: true
+
+operational:
+  allowed_actions: ["read", "search", "analyze", "recommend"]
+  max_actions_per_hour: 150
+  max_data_queries: 300
+
+temporal:
+  max_duration_minutes: 90
+
+data_access:
+  allowed_paths: ["/market_data/", "/research/", "/portfolios/"]
+  allowed_classification: "internal"
+  read_only: false
+
+communication:
+  allowed_channels: ["internal", "analyst", "portfolio_manager"]
+  rate_limit_per_hour: 20

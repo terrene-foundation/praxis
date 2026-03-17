@@ -1,0 +1,117 @@
+name: cocomp
+display_name: "CO for Compliance"
+description: "Cognitive Orchestration for compliance workflows. Provides tamper-evident audit trails for regulatory submissions, internal audits, and compliance programme management with mandatory human sign-off."
+version: "1.0"
+
+constraint_templates:
+  internal:
+    financial:
+      max_spend: 30.0
+    operational:
+      allowed_actions: ["read", "analyze", "draft", "flag"]
+      max_actions_per_hour: 100
+    temporal:
+      max_duration_minutes: 180
+    data_access:
+      allowed_paths: ["/compliance/", "/policies/", "/evidence/"]
+    communication:
+      allowed_channels: ["internal", "compliance_officer"]
+    rationale:
+      financial: "Moderate budget for internal audit sessions involving document analysis, gap identification, and finding documentation."
+      operational: "Flag action enables compliance issue tagging for human review. Drafting supports finding documentation but not final determinations."
+      temporal: "Three-hour sessions accommodate thorough internal audits. Compliance reviews must be comprehensive rather than rushed."
+      data_access: "Access to compliance records, policies, and evidence stores. Production systems and financial data require separate authorisation."
+      communication: "Internal channels plus compliance officer. Audit independence requires that findings are not shared externally until formally reviewed."
+
+  external:
+    financial:
+      max_spend: 10.0
+    operational:
+      allowed_actions: ["read", "analyze", "draft"]
+      max_actions_per_hour: 30
+    temporal:
+      max_duration_minutes: 120
+    data_access:
+      allowed_paths: ["/compliance/"]
+    communication:
+      allowed_channels: ["internal", "compliance_officer", "legal_counsel"]
+    rationale:
+      financial: "Low budget for external audit preparation. Regulatory submissions require careful, deliberate AI use to avoid errors in formal documents."
+      operational: "No flag action in external mode. Flagging is an internal triage tool; external submissions use formal finding classifications only."
+      temporal: "Two-hour cap for focused regulatory submission preparation. External-facing work requires concentrated attention and frequent human review."
+      data_access: "Compliance directory only. Evidence and policy access is restricted during external sessions to prevent scope creep in regulatory submissions."
+      communication: "Legal counsel channel added for regulatory interpretation questions. External auditor communication is handled through human compliance officers only."
+
+phases:
+  - name: scoping
+    display_name: "Scoping"
+    description: "Define compliance requirement and applicable regulations"
+    approval_gate: true
+  - name: gap_analysis
+    display_name: "Gap Analysis"
+    description: "AI-assisted gap identification against requirements"
+    approval_gate: false
+  - name: evidence_gathering
+    display_name: "Evidence Gathering"
+    description: "Collect and organise compliance evidence"
+    approval_gate: false
+  - name: review
+    display_name: "Review"
+    description: "Human compliance officer review of all findings"
+    approval_gate: true
+  - name: submission
+    display_name: "Submission"
+    description: "Regulatory submission preparation with human authorisation"
+    approval_gate: true
+
+knowledge:
+  classification:
+    - type: institutional
+      content: "Every compliance determination must reference the specific regulation or policy section. Unsubstantiated compliance claims create legal and regulatory risk."
+      priority: P0
+    - type: institutional
+      content: "Regulatory submissions require human compliance officer sign-off. AI may draft but must never finalise or submit compliance documents independently."
+      priority: P0
+    - type: generic
+      content: "Evidence chain of custody should be documented using tamper-evident records. Each piece of evidence should trace back to its collection method and handler."
+      priority: P2
+
+capture:
+  auto_capture:
+    - document_access
+    - compliance_findings
+  decision_types:
+    - compliance_determination
+    - exception_request
+    - corrective_action
+    - regulatory_interpretation
+  observation_targets:
+    - evidence_coverage
+    - regulation_mapping
+    - review_completeness
+    - constraint_evaluation
+    - held_action_resolution
+    - session_lifecycle
+
+anti_amnesia:
+  - priority: P0
+    rule: "Every compliance determination must reference the specific regulation or policy section"
+    trigger: always
+  - priority: P0
+    rule: "Do not submit regulatory documents without human compliance officer sign-off"
+    trigger: always
+  - priority: P1
+    rule: "Track evidence chain of custody. Document how each piece of evidence was obtained."
+    trigger: on_write
+
+rules:
+  - name: precedent_required
+    type: precedent_required
+    description: "Compliance determinations and regulatory interpretations must cite precedent"
+    params:
+      applies_to: ["compliance_determination", "regulatory_interpretation"]
+  - name: alternatives_required
+    type: alternatives_present
+    description: "Exception requests must document alternatives considered before requesting exception"
+    params:
+      applies_to: ["exception_request"]

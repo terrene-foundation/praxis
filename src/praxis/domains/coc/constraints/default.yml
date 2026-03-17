@@ -1,0 +1,26 @@
+# COC default constraint template (moderate)
+# Standard development constraints for typical projects.
+name: moderate
+description: "Standard development constraints for typical projects"
+
+financial:
+  max_spend: 50.0
+  currency: "USD"
+
+operational:
+  allowed_actions: ["read", "write", "analyze", "deploy_staging"]
+  max_actions_per_hour: 200
+  max_file_modifications: 100
+  max_network_calls: 50
+
+temporal:
+  max_duration_minutes: 120
+
+data_access:
+  allowed_paths: ["/"]
+  allowed_classification: "internal"
+  read_only: false
+
+communication:
+  allowed_channels: ["internal", "supervisor"]
+  rate_limit_per_hour: 20

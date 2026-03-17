@@ -1,0 +1,140 @@
+name: cor
+display_name: "CO for Research"
+description: "Cognitive Orchestration for research workflows. Captures hypothesis formation, methodology decisions, and interpretation reasoning to maintain research integrity and reproducibility."
+version: "1.0"
+
+constraint_templates:
+  exploratory:
+    financial:
+      max_spend: 100.0
+    operational:
+      allowed_actions: ["read", "search", "analyze", "brainstorm", "draft"]
+      max_actions_per_hour: 300
+    temporal:
+      max_duration_minutes: 480
+    data_access:
+      allowed_paths: ["*"]
+    communication:
+      allowed_channels: ["internal", "supervisor", "external_academic"]
+    rationale:
+      financial: "Higher budget supports broad literature searches, multiple analysis iterations, and creative brainstorming during early-stage research."
+      operational: "Brainstorm and draft actions enabled for hypothesis generation. Exploratory sessions benefit from high-throughput AI interaction."
+      temporal: "Full-day sessions for deep literature review and hypothesis exploration. Research breakthroughs often require sustained, uninterrupted work."
+      data_access: "Unrestricted access for interdisciplinary exploration. Early-stage research benefits from connecting ideas across domains."
+      communication: "External academic channels allow collaboration with peer researchers and access to preprint discussions during exploration."
+
+  formal:
+    financial:
+      max_spend: 50.0
+    operational:
+      allowed_actions: ["read", "search", "analyze", "draft"]
+      max_actions_per_hour: 150
+    temporal:
+      max_duration_minutes: 240
+    data_access:
+      allowed_paths: ["/research/", "/data/", "/literature/"]
+    communication:
+      allowed_channels: ["internal", "supervisor"]
+    rationale:
+      financial: "Moderate budget for structured research phases. Methodology design and data analysis require focused but bounded AI assistance."
+      operational: "Brainstorm removed; formal research uses structured analysis and drafting. Methodology must be deliberate, not freeform."
+      temporal: "Four-hour sessions align with focused research blocks. Longer sessions risk methodological drift without human checkpoint."
+      data_access: "Scoped to research materials, datasets, and literature. Prevents accidental access to administrative or unrelated project data."
+      communication: "Supervisor-only external channel. Formal research decisions require PI oversight before broader dissemination."
+
+  sensitive:
+    financial:
+      max_spend: 20.0
+    operational:
+      allowed_actions: ["read", "search", "analyze"]
+      max_actions_per_hour: 50
+    temporal:
+      max_duration_minutes: 120
+    data_access:
+      allowed_paths: ["/research/"]
+    communication:
+      allowed_channels: ["internal", "principal_investigator"]
+    rationale:
+      financial: "Low budget limits AI interaction with sensitive data. Minimises exposure surface for confidential or embargoed research."
+      operational: "Read-only with analysis. No drafting prevents AI from generating text that could inadvertently disclose sensitive findings."
+      temporal: "Short sessions limit the window of exposure for sensitive data. Researchers must plan interactions with confidential material carefully."
+      data_access: "Research directory only. Data files, literature, and other resources are excluded to contain sensitive information access."
+      communication: "PI channel only. All communication about sensitive research must route through the principal investigator for disclosure control."
+
+phases:
+  - name: literature_review
+    display_name: "Literature Review"
+    description: "Systematic literature search and analysis"
+    approval_gate: false
+  - name: hypothesis_formation
+    display_name: "Hypothesis Formation"
+    description: "Researcher formulates hypotheses with AI gap analysis assistance"
+    approval_gate: true
+  - name: methodology
+    display_name: "Methodology"
+    description: "Research design and methodology selection"
+    approval_gate: true
+  - name: analysis
+    display_name: "Analysis"
+    description: "Data analysis with AI assistance"
+    approval_gate: false
+  - name: interpretation
+    display_name: "Interpretation"
+    description: "Human-led interpretation with AI counterarguments"
+    approval_gate: true
+  - name: write_up
+    display_name: "Write-Up"
+    description: "Research documentation with attribution tracking"
+    approval_gate: false
+
+knowledge:
+  classification:
+    - type: institutional
+      content: "All data exclusion decisions must be documented with full rationale for reproducibility. Selective data exclusion without justification is a research integrity violation."
+      priority: P0
+    - type: institutional
+      content: "Distinguish clearly between AI-generated hypotheses and researcher-formulated ones. The deliberation log must make the origin of each hypothesis transparent."
+      priority: P1
+    - type: generic
+      content: "Literature searches should use systematic review methodology where applicable, documenting search terms, databases, and inclusion/exclusion criteria."
+      priority: P2
+
+capture:
+  auto_capture:
+    - data_queries
+    - literature_citations
+  decision_types:
+    - hypothesis_adoption
+    - methodology_selection
+    - data_exclusion
+    - interpretation
+  observation_targets:
+    - citation_patterns
+    - methodology_changes
+    - data_access_patterns
+    - constraint_evaluation
+    - held_action_resolution
+    - session_lifecycle
+
+anti_amnesia:
+  - priority: P0
+    rule: "All data exclusion decisions must be documented with full rationale for reproducibility"
+    trigger: always
+  - priority: P1
+    rule: "Cite all literature sources. Track provenance of every claim."
+    trigger: on_write
+  - priority: P1
+    rule: "Distinguish between AI-generated hypotheses and researcher-formulated ones"
+    trigger: always
+
+rules:
+  - name: citation_required
+    type: citation_required
+    description: "Interpretation and hypothesis decisions must include literature citations"
+    params:
+      applies_to: ["interpretation", "hypothesis_adoption"]
+  - name: rationale_minimum
+    type: rationale_depth
+    description: "Research decision rationales must be thorough for reproducibility"
+    params:
+      min_words: 15

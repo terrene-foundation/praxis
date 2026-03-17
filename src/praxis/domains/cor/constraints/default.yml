@@ -1,0 +1,25 @@
+# COR default constraint template (formal)
+# Structured research protocol with medium constraints.
+name: formal
+description: "Structured research protocol constraints for formal research"
+
+financial:
+  max_spend: 50.0
+  currency: "USD"
+
+operational:
+  allowed_actions: ["read", "search", "analyze", "draft"]
+  max_actions_per_hour: 150
+  max_network_calls: 75
+
+temporal:
+  max_duration_minutes: 240
+
+data_access:
+  allowed_paths: ["/research/", "/data/", "/literature/"]
+  allowed_classification: "internal"
+  read_only: false
+
+communication:
+  allowed_channels: ["internal", "supervisor"]
+  rate_limit_per_hour: 15

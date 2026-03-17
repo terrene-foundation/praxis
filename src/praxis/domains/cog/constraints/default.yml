@@ -1,0 +1,26 @@
+# COG default constraint template (deliberative)
+# AI may propose options for deliberation. Humans deliberate and decide.
+name: deliberative
+description: "AI may propose options for deliberation. Humans deliberate and decide."
+
+financial:
+  max_spend: 20.0
+  currency: "USD"
+
+operational:
+  allowed_actions: ["read", "analyze", "summarize", "draft_motion"]
+  max_actions_per_hour: 50
+  ai_may_propose_motions: true
+  ai_may_vote: false
+
+temporal:
+  max_duration_minutes: 240
+
+data_access:
+  allowed_paths: ["/governance/", "/policy/", "/minutes/"]
+  allowed_classification: "confidential"
+  read_only: false
+
+communication:
+  allowed_channels: ["internal", "board", "secretary"]
+  rate_limit_per_hour: 20

@@ -1,0 +1,93 @@
+{
+  "name": "praxis-vscode",
+  "displayName": "Praxis — Trust-Aware AI Collaboration",
+  "description": "VS Code integration for the Praxis CO platform. Manage collaboration sessions, enforce constraints, capture deliberation, and approve held actions from your IDE.",
+  "version": "0.1.0",
+  "publisher": "terrene-foundation",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/terrene-foundation/praxis"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "praxis-sidebar",
+          "title": "Praxis",
+          "icon": "$(shield)"
+        }
+      ]
+    },
+    "views": {
+      "praxis-sidebar": [
+        {
+          "type": "webview",
+          "id": "praxis.sessionView",
+          "name": "Sessions"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "praxis.configure",
+        "title": "Praxis: Configure Server Connection"
+      },
+      {
+        "command": "praxis.startSession",
+        "title": "Praxis: Start Collaboration Session"
+      },
+      {
+        "command": "praxis.endSession",
+        "title": "Praxis: End Collaboration Session"
+      },
+      {
+        "command": "praxis.recordDecision",
+        "title": "Praxis: Record Decision"
+      },
+      {
+        "command": "praxis.configureMcp",
+        "title": "Praxis: Configure MCP Server"
+      },
+      {
+        "command": "praxis.mcpSetup",
+        "title": "Praxis: MCP Setup Walkthrough"
+      }
+    ],
+    "configuration": {
+      "title": "Praxis",
+      "properties": {
+        "praxis.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "URL of the Praxis server."
+        },
+        "praxis.pollIntervalSeconds": {
+          "type": "number",
+          "default": 30,
+          "description": "How often to poll the server for updates (seconds)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p ./tsconfig.json",
+    "watch": "tsc -watch -p ./tsconfig.json",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}

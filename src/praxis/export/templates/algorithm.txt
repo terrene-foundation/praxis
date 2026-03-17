@@ -1,0 +1,137 @@
+Praxis Trust Chain Verification Algorithm
+==========================================
+Copyright 2026 Terrene Foundation (Apache 2.0)
+
+This document describes the verification algorithm used by the Praxis
+verification bundle. Any auditor can independently verify the trust chain
+using these steps, with or without the bundled JavaScript verifier.
+
+
+Overview
+--------
+
+A Praxis trust chain is a sequence of signed entries (genesis, delegations,
+audit anchors) linked by cryptographic hashes. Each entry contains:
+
+  - payload:        The data content of the entry (JSON object)
+  - content_hash:   SHA-256 hash of the JCS-canonical payload
+  - signature:      Ed25519 signature of the content_hash bytes
+  - signer_key_id:  Identifier of the signing key
+  - parent_hash:    content_hash of the previous entry (null for genesis)
+
+
+Step 1: Canonicalize the Payload (JCS / RFC 8785)
+--------------------------------------------------
+
+The payload is serialized using JSON Canonicalization Scheme (JCS), as
+defined in RFC 8785. This ensures deterministic serialization:
+
+  1. Object keys are sorted lexicographically (Unicode code point order)
+  2. No whitespace between tokens
+  3. Strings use minimal escaping per RFC 8785
+  4. Numbers are serialized in their shortest form
+  5. Nested objects and arrays are recursively canonicalized
+
+Example:
+  Input:   {"b": 2, "a": 1}
+  JCS:     {"a":1,"b":2}
+
+
+Step 2: Compute SHA-256 Hash
+----------------------------
+
+The SHA-256 hash is computed over the raw bytes of the JCS-canonical
+JSON string (UTF-8 encoded). The result is stored as a lowercase
+hexadecimal string (64 characters).
+
+  content_hash = hex(SHA-256(UTF-8(JCS(payload))))
+
+
+Step 3: Verify Content Hash
+---------------------------
+
+For each entry, recompute the content_hash from the payload using
+Steps 1-2. Compare with the stored content_hash. If they differ,
+the payload has been tampered with.
+
+
+Step 4: Verify Ed25519 Signature
+---------------------------------
+
+The signature is an Ed25519 signature over the raw bytes of the
+content_hash (the hex string decoded to bytes, NOT the hex string
+itself as UTF-8).
+
+  1. Decode the content_hash hex string to 32 bytes
+  2. Decode the base64url signature to 64 bytes
+  3. Load the signer's Ed25519 public key (from keys.json / bundle data)
+  4. Verify: Ed25519.verify(public_key, signature_bytes, hash_bytes)
+
+If verification fails, either the content was tampered with or the
+signature was forged.
+
+
+Step 5: Verify Parent Hash Chain
+---------------------------------
+
+Each entry (except genesis) must have a parent_hash that equals the
+content_hash of the immediately preceding entry:
+
+  - Entry 0 (genesis): parent_hash MUST be null
+  - Entry N (N > 0):    parent_hash MUST equal entry[N-1].content_hash
+
+If a parent_hash does not match, the chain has been reordered, entries
+have been inserted or removed, or the chain has been otherwise tampered
+with.
+
+
+Verification Result
+-------------------
+
+The chain is valid if and only if ALL of the following hold for every
+entry in the chain:
+
+  1. Recomputed content_hash matches stored content_hash
+  2. Ed25519 signature verifies against the content_hash bytes
+  3. parent_hash matches previous entry's content_hash (or is null for genesis)
+
+Any violation is a "break" and must be reported with its position in
+the chain and the type of violation (bad_hash, bad_signature,
+broken_parent_link, unknown_key).
+
+
+Key Formats
+-----------
+
+  - Public keys: PEM-encoded SubjectPublicKeyInfo (SPKI) format
+  - Signatures:  Base64url encoding (RFC 4648, no padding)
+  - Hashes:      Lowercase hexadecimal (64 characters for SHA-256)
+
+
+Tools for Manual Verification
+-----------------------------
+
+Using Python (cryptography library):
+
+  import hashlib, base64, jcs
+  from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+  from cryptography.hazmat.primitives import serialization
+
+  # Step 1-2: Compute hash
+  canonical = jcs.canonicalize(payload)
+  content_hash = hashlib.sha256(canonical).hexdigest()
+
+  # Step 4: Verify signature
+  pub_key = serialization.load_pem_public_key(pem_bytes)
+  hash_bytes = bytes.fromhex(content_hash)
+  sig_bytes = base64.urlsafe_b64decode(signature_b64)
+  pub_key.verify(sig_bytes, hash_bytes)  # Raises on failure
+
+Using OpenSSL (command line):
+
+  # Extract raw public key from PEM
+  openssl pkey -pubin -in key.pub -outform DER -out key.der
+
+  # Verify signature (after preparing hash and sig as binary files)
+  openssl pkeyutl -verify -pubin -inkey key.pub \
+    -sigfile signature.bin -in hash.bin

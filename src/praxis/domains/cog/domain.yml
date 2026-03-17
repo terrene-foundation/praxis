@@ -1,0 +1,138 @@
+name: cog
+display_name: "CO for Governance"
+description: "Cognitive Orchestration for organisational governance. Ensures all governance decisions are captured with full deliberation, constitutional constraints are enforced, and AI operates in an advisory capacity with human decision authority preserved."
+version: "1.0"
+
+constraint_templates:
+  advisory:
+    financial:
+      max_spend: 5.0
+    operational:
+      allowed_actions: ["read", "analyze", "summarize"]
+      max_actions_per_hour: 20
+    temporal:
+      max_duration_minutes: 180
+    data_access:
+      allowed_paths: ["/governance/", "/policy/"]
+    communication:
+      allowed_channels: ["internal", "board"]
+    rationale:
+      financial: "Low budget for advisory sessions where AI provides background analysis only. No drafting or resolution costs incurred."
+      operational: "Read-only with analysis. AI operates strictly as advisor; no ability to draft motions or modify governance documents."
+      temporal: "Three hours allows thorough analysis of governance questions while ensuring sessions conclude with actionable summaries."
+      data_access: "Governance and policy documents only. Meeting minutes and historical records require deliberative-level access."
+      communication: "Board channel allows sharing analysis with directors. External legal and executive channels require elevated access."
+
+  deliberative:
+    financial:
+      max_spend: 20.0
+    operational:
+      allowed_actions: ["read", "analyze", "summarize", "draft_motion"]
+      max_actions_per_hour: 50
+    temporal:
+      max_duration_minutes: 240
+    data_access:
+      allowed_paths: ["/governance/", "/policy/", "/minutes/"]
+    communication:
+      allowed_channels: ["internal", "board", "secretary"]
+    rationale:
+      financial: "Moderate budget for active governance sessions including motion drafting. Supports multi-round deliberation with AI assistance."
+      operational: "Motion drafting enabled. AI can prepare formal motion language, but all motions require human proposal and seconding."
+      temporal: "Four-hour cap accommodates full board meeting preparation cycles including analysis, drafting, and revision."
+      data_access: "Minutes access added for historical precedent review. Ensures motions are consistent with prior governance decisions."
+      communication: "Secretary channel added for formal documentation coordination. Legal counsel access requires executive-level authorisation."
+
+  executive:
+    financial:
+      max_spend: 100.0
+    operational:
+      allowed_actions:
+        ["read", "analyze", "summarize", "draft_motion", "prepare_resolution"]
+      max_actions_per_hour: 100
+    temporal:
+      max_duration_minutes: 120
+    data_access:
+      allowed_paths: ["*"]
+    communication:
+      allowed_channels: ["internal", "board", "secretary", "executive", "legal"]
+    rationale:
+      financial: "Higher budget for complex governance actions requiring resolution preparation, legal review coordination, and multi-stakeholder input."
+      operational: "Resolution preparation enabled. AI can draft formal resolutions, but execution requires constitutional quorum and human vote."
+      temporal: "Shorter duration reflects focused executive decision-making. Complex matters should be pre-analysed in deliberative sessions."
+      data_access: "Full access for cross-cutting governance decisions that may involve financial records, contracts, or personnel documents."
+      communication: "All governance channels open including legal counsel. Executive actions often require coordinated legal and fiduciary review."
+
+phases:
+  - name: agenda_setting
+    display_name: "Agenda Setting"
+    description: "Define the governance question and scope"
+    approval_gate: true
+  - name: analysis
+    display_name: "Analysis"
+    description: "AI-assisted analysis of options and implications"
+    approval_gate: false
+  - name: deliberation
+    display_name: "Deliberation"
+    description: "Human deliberation with AI in observer mode only"
+    approval_gate: true
+  - name: decision
+    display_name: "Decision"
+    description: "Formal decision capture with full rationale"
+    approval_gate: true
+  - name: documentation
+    display_name: "Documentation"
+    description: "Minutes and resolution documentation"
+    approval_gate: false
+
+knowledge:
+  classification:
+    - type: institutional
+      content: "AI operates strictly in advisory capacity during governance sessions. All motions require human proposal and seconding; all resolutions require constitutional quorum and human vote."
+      priority: P0
+    - type: institutional
+      content: "Constitutional amendments require supermajority approval as defined in the organisation's governing documents. The AI must never suggest bypassing quorum requirements."
+      priority: P0
+    - type: generic
+      content: "Meeting minutes should follow standard parliamentary procedure formatting and include timestamps for key deliberation moments."
+      priority: P3
+
+capture:
+  auto_capture:
+    - motion_proposals
+    - vote_records
+  decision_types:
+    - policy_adoption
+    - constitutional_amendment
+    - financial_commitment
+    - executive_appointment
+  observation_targets:
+    - deliberation_duration
+    - participant_engagement
+    - constitutional_compliance
+    - constraint_evaluation
+    - held_action_resolution
+    - session_lifecycle
+
+anti_amnesia:
+  - priority: P0
+    rule: "All governance decisions require human vote. AI operates in advisory capacity only."
+    trigger: always
+  - priority: P0
+    rule: "Constitutional amendments require supermajority approval. Do not bypass quorum."
+    trigger: always
+  - priority: P1
+    rule: "Document precedent for all policy decisions. Check minutes for prior rulings."
+    trigger: on_session_start
+
+rules:
+  - name: alternatives_required
+    type: alternatives_present
+    description: "All governance decisions must document alternatives considered"
+    params:
+      applies_to:
+        ["policy_adoption", "constitutional_amendment", "financial_commitment"]
+  - name: rationale_minimum
+    type: rationale_depth
+    description: "Governance decision rationales must be thorough"
+    params:
+      min_words: 20

@@ -1,0 +1,41 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.hypothesis
+*.egg-info
+dist
+build
+
+# Frontend apps (not needed in backend container)
+apps/
+packages/
+
+# Workspace data
+workspaces/
+.claude/
+.praxis/
+
+# Dev files
+.env
+*.db
+*.sqlite
+tests/
+docs/
+scripts/
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml

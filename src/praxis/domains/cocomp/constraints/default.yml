@@ -1,0 +1,25 @@
+# COComp default constraint template (internal)
+# Standard controls for internal compliance review.
+name: internal
+description: "Internal compliance review with standard controls"
+
+financial:
+  max_spend: 30.0
+  currency: "USD"
+
+operational:
+  allowed_actions: ["read", "analyze", "draft", "flag"]
+  max_actions_per_hour: 100
+  max_document_accesses: 200
+
+temporal:
+  max_duration_minutes: 180
+
+data_access:
+  allowed_paths: ["/compliance/", "/policies/", "/evidence/"]
+  allowed_classification: "confidential"
+  read_only: false
+
+communication:
+  allowed_channels: ["internal", "compliance_officer"]
+  rate_limit_per_hour: 15

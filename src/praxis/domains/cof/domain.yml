@@ -1,0 +1,136 @@
+name: cof
+display_name: "CO for Finance"
+description: "Cognitive Orchestration for financial workflows. AI may analyse and advise; humans authorise all capital deployment decisions. Full deliberation audit trail for regulatory and fiduciary compliance."
+version: "1.0"
+
+constraint_templates:
+  analysis:
+    financial:
+      max_spend: 20.0
+    operational:
+      allowed_actions: ["read", "search", "analyze"]
+      max_actions_per_hour: 200
+    temporal:
+      max_duration_minutes: 120
+    data_access:
+      allowed_paths: ["/market_data/", "/research/"]
+    communication:
+      allowed_channels: ["internal", "analyst"]
+    rationale:
+      financial: "Moderate budget for market research sessions. Analysis costs scale with data volume but carry no execution risk."
+      operational: "Read-only with search and analysis. No recommendation capability prevents premature investment thesis formation without sufficient research."
+      temporal: "Two-hour sessions for focused market analysis. Longer sessions risk information overload without synthesis checkpoints."
+      data_access: "Market data and research only. Portfolio positions are not visible during pure analysis to prevent anchoring bias."
+      communication: "Analyst channel only. Research findings stay within the analysis team until formally synthesised into recommendations."
+
+  advisory:
+    financial:
+      max_spend: 50.0
+    operational:
+      allowed_actions: ["read", "search", "analyze", "recommend"]
+      max_actions_per_hour: 150
+    temporal:
+      max_duration_minutes: 90
+    data_access:
+      allowed_paths: ["/market_data/", "/research/", "/portfolios/"]
+    communication:
+      allowed_channels: ["internal", "analyst", "portfolio_manager"]
+    rationale:
+      financial: "Higher budget for sessions that generate formal investment recommendations. Recommendation generation requires deeper AI analysis."
+      operational: "Recommend action enabled. AI can generate formal investment recommendations, but all capital deployment decisions require human authorisation."
+      temporal: "Ninety-minute cap for focused advisory sessions. Recommendations must be timely; extended sessions risk stale market data informing advice."
+      data_access: "Portfolio access added for position-aware recommendations. AI needs current holdings context to avoid redundant or conflicting advice."
+      communication: "Portfolio manager channel enables direct delivery of recommendations to decision-makers with full deliberation trail attached."
+
+  trading:
+    financial:
+      max_spend: 5.0
+    operational:
+      allowed_actions: ["read", "analyze", "recommend"]
+      max_actions_per_hour: 20
+    temporal:
+      max_duration_minutes: 60
+    data_access:
+      allowed_paths: ["/market_data/", "/portfolios/"]
+    communication:
+      allowed_channels: ["internal", "portfolio_manager", "compliance_officer"]
+    rationale:
+      financial: "Lowest budget tier. Trading-adjacent sessions are tightly controlled because proximity to capital deployment demands maximum constraint."
+      operational: "No search action in trading mode. AI operates on pre-loaded data only. Low action rate prevents high-frequency recommendation patterns."
+      temporal: "One-hour maximum for trading-adjacent sessions. Short windows reduce exposure to rapidly changing market conditions and decision fatigue."
+      data_access: "Market data and portfolio positions only. Research materials are excluded to enforce separation between analysis and execution phases."
+      communication: "Compliance officer channel mandatory. All trading-adjacent AI activity must be visible to compliance for regulatory audit trail requirements."
+
+phases:
+  - name: research
+    display_name: "Research"
+    description: "Market and security research"
+    approval_gate: false
+  - name: analysis
+    display_name: "Analysis"
+    description: "Quantitative and qualitative analysis"
+    approval_gate: false
+  - name: recommendation
+    display_name: "Recommendation"
+    description: "AI generates recommendations for human review"
+    approval_gate: true
+  - name: decision
+    display_name: "Decision"
+    description: "Human investment decision with rationale capture"
+    approval_gate: true
+  - name: documentation
+    display_name: "Documentation"
+    description: "Investment thesis and decision documentation"
+    approval_gate: false
+
+knowledge:
+  classification:
+    - type: institutional
+      content: "AI must never execute trades or deploy capital. All capital deployment decisions require explicit human authorisation with full deliberation trail for fiduciary compliance."
+      priority: P0
+    - type: institutional
+      content: "Separation of analysis and execution phases is mandatory. Research recommendations must go through a human decision gate before any position changes."
+      priority: P1
+    - type: generic
+      content: "Market data freshness matters: always note the timestamp of data sources used in analysis. Stale data can lead to incorrect recommendations."
+      priority: P2
+
+capture:
+  auto_capture:
+    - market_data_queries
+    - recommendation_events
+  decision_types:
+    - investment_thesis
+    - position_sizing
+    - risk_tolerance
+    - sector_allocation
+  observation_targets:
+    - data_source_coverage
+    - recommendation_accuracy
+    - decision_turnaround
+    - constraint_evaluation
+    - held_action_resolution
+    - session_lifecycle
+
+anti_amnesia:
+  - priority: P0
+    rule: "AI must never execute trades or deploy capital. All capital decisions require human authorisation."
+    trigger: always
+  - priority: P0
+    rule: "Document all data sources used in analysis. Track provenance for audit trail."
+    trigger: always
+  - priority: P1
+    rule: "Flag conflicts of interest and position concentration risks before making recommendations"
+    trigger: on_session_start
+
+rules:
+  - name: alternatives_required
+    type: alternatives_present
+    description: "Investment thesis and sector allocation decisions must document alternatives"
+    params:
+      applies_to: ["investment_thesis", "sector_allocation"]
+  - name: rationale_minimum
+    type: rationale_depth
+    description: "Financial decision rationales must be thorough for fiduciary compliance"
+    params:
+      min_words: 15

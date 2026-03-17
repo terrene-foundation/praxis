@@ -1,0 +1,189 @@
+decisions:
+  - decision: "Trust chain records are frozen dataclasses"
+    rationale: "Prevent post-signing mutation that would bypass verification"
+    alternatives_rejected: "Mutable dataclasses with validation on access"
+    date: 2026-03-15
+    initiative: praxis
+    confidence: high
+
+  - decision: "Gradient thresholds are normative (70/90/100), not configurable"
+    rationale: "CO specification defines these as normative values; configurability would create inconsistency across deployments and undermine the standard"
+    alternatives_rejected: "User-configurable thresholds per domain"
+    date: 2026-03-15
+    initiative: praxis
+    confidence: high
+
+  - decision: "Domain configurations are pure YAML with no code execution"
+    rationale: "Security and portability -- YAML configs cannot execute arbitrary code, are auditable, and can be validated against JSON Schema"
+    alternatives_rejected: "Python-based domain plugins, DSL for domain rules"
+    date: 2026-03-15
+    initiative: praxis
+    confidence: high
+
+  - decision: "All 5 constraint dimensions are always evaluated (no short-circuit)"
+    rationale: "Short-circuiting would hide violations in lower-priority dimensions; full evaluation gives complete visibility for audit and reporting"
+    alternatives_rejected: "Stop at first BLOCKED dimension for performance"
+    date: 2026-03-15
+    initiative: praxis
+    confidence: high
+
+  - decision: "Handler functions are framework-independent plain functions"
+    rationale: "Decouples business logic from Nexus/FastAPI; handlers are directly testable without HTTP and can be reused across CLI, API, and MCP"
+    alternatives_rejected: "FastAPI route decorators, class-based views"
+    date: 2026-03-15
+    initiative: praxis
+    confidence: high
+
+  - decision: "In-memory stores for v0.1.0 with DataFlow models defined but not wired"
+    rationale: "Ship working trust chain first, persistence second. Models and queries.py define a stable interface so DataFlow integration adds no API changes"
+    alternatives_rejected: "Full DataFlow persistence from day one"
+    date: 2026-03-15
+    initiative: praxis
+    confidence: high
+
+  - decision: "JCS (RFC 8785) for canonical JSON serialization"
+    rationale: "Deterministic serialization is required for reproducible hashes across platforms. JCS is the only RFC-standard approach to canonical JSON"
+    alternatives_rejected: "json.dumps with sort_keys (non-standard, inconsistent with nested objects)"
+    date: 2026-03-15
+    initiative: praxis
+    confidence: high
+
+  - decision: "Ed25519 for all trust chain signatures"
+    rationale: "Ed25519 is fast, compact (64-byte signatures), deterministic, and resistant to side-channel attacks. Used consistently throughout the trust layer"
+    alternatives_rejected: "RSA (larger keys/sigs), ECDSA-P256 (non-deterministic signing), HMAC (symmetric, no public verification)"
+    date: 2026-03-15
+    initiative: praxis
+    confidence: high
+
+  - decision: "Verification bundles are self-contained ZIP files with browser-based verification"
+    rationale: "Third-party auditors should verify trust chains without installing software. SubtleCrypto API provides Ed25519 verification in any modern browser"
+    alternatives_rejected: "CLI-only verification tool, server-side verification endpoint"
+    date: 2026-03-15
+    initiative: praxis
+    confidence: high
+
+  - decision: "Path traversal protection via regex validation on key_id"
+    rationale: "KeyManager uses key_id as filename stem. Without validation, an attacker could use '../../../etc/passwd' as key_id to read/write arbitrary files"
+    alternatives_rejected: "Sanitize by stripping invalid characters (lossy, error-prone)"
+    date: 2026-03-15
+    initiative: praxis
+    confidence: high
+
+  - decision: "PraxisConfig is a frozen dataclass with singleton caching"
+    rationale: "Immutable config prevents accidental mutation during runtime. Singleton ensures consistent config across all modules. reset_config() exists for tests only"
+    alternatives_rejected: "Mutable config object, global dict, re-reading .env on each access"
+    date: 2026-03-15
+    initiative: praxis
+    confidence: high
+
+  - decision: "Constraint tightening is enforced at both session and delegation levels"
+    rationale: "Monotonic constraint shrinking is an EATP invariant. Enforcing at both levels prevents bypass -- session.update_constraints() and create_delegation() both validate"
+    alternatives_rejected: "Enforce only at delegation level (sessions would be unprotected)"
+    date: 2026-03-15
+    initiative: praxis
+    confidence: high
+
+  - decision: "Audit chain verifier enumerates all breaks rather than stopping at first"
+    rationale: "Forensic analysis requires complete break enumeration. Stopping at first break would hide subsequent issues and make root cause analysis harder"
+    alternatives_rejected: "Fail-fast verification that stops at first break"
+    date: 2026-03-15
+    initiative: praxis
+    confidence: high
+
+  - decision: "Dev mode uses warning-level defaults rather than skipping validation"
+    rationale: "Dev mode relaxes requirements (default DB URL, default API secret) but warns clearly. This prevents production deployment with dev defaults while keeping local development frictionless"
+    alternatives_rejected: "Skip all validation in dev mode (unsafe), require full config even for development (friction)"
+    date: 2026-03-15
+    initiative: praxis
+    confidence: high
+
+  - decision: "NaN and Infinity utilization values map to BLOCKED"
+    rationale: "Non-finite utilization indicates a calculation error (division by zero, corrupted data). Blocking is the safe default -- never auto-approve actions based on invalid math"
+    alternatives_rejected: "Treat NaN as 0 (unsafe), raise exception (breaks evaluation flow)"
+    date: 2026-03-15
+    initiative: praxis
+    confidence: high
+
+  - decision: "Raw sqlite3 instead of DataFlow workflow nodes for CRUD operations"
+    rationale: "DataFlow workflow nodes had async connection lifecycle issues that did not work reliably with synchronous callers (CLI, some API handlers). Raw sqlite3 with DataFlow-managed schema provides reliable CRUD while keeping a single schema source of truth"
+    alternatives_rejected: "Full DataFlow workflow nodes for all DB operations (connection management issues), pure SQLAlchemy (would bypass DataFlow schema management)"
+    date: 2026-03-16
+    initiative: praxis
+    confidence: high
+
+  - decision: "db.models instead of db._models for DataFlow model access"
+    rationale: "DataFlow API change during development -- the public API for accessing registered models is db.models, not db._models. Using the public API ensures forward compatibility"
+    alternatives_rejected: "Continue using db._models (private API, may break)"
+    date: 2026-03-16
+    initiative: praxis
+    confidence: high
+
+  - decision: "Optional[str] instead of Optional[dict] for model JSON fields"
+    rationale: "DataFlow's type system stores JSON columns as strings in SQLite. Using Optional[dict] caused type mismatches on read. Optional[str] with explicit JSON serialization/deserialization in db_ops is correct"
+    alternatives_rejected: "Optional[dict] with custom DataFlow type adapter (not supported), Any type (loses type safety)"
+    date: 2026-03-16
+    initiative: praxis
+    confidence: high
+
+  - decision: "hmac.compare_digest for timing-safe auth token comparison"
+    rationale: "Standard string comparison leaks information through timing differences. hmac.compare_digest provides constant-time comparison that prevents timing attacks on JWT secrets"
+    alternatives_rejected: "Regular == comparison (vulnerable to timing attacks), secrets.compare_digest (same function, hmac is more explicit)"
+    date: 2026-03-16
+    initiative: praxis
+    confidence: high
+
+  - decision: "Column name regex validation for SQL injection prevention in db_ops"
+    rationale: "db_ops constructs SQL from dict keys (column names). Without validation, a crafted key like 'id; DROP TABLE sessions' could inject SQL. Regex ^[a-zA-Z_][a-zA-Z0-9_]{0,63}$ allows only safe identifiers"
+    alternatives_rejected: "Quoting column names (still risky with some edge cases), allowlist of known columns (brittle, breaks when models change)"
+    date: 2026-03-16
+    initiative: praxis
+    confidence: high
+
+  - decision: "Random dev secret instead of hardcoded default"
+    rationale: "A hardcoded dev secret (like 'dev-secret-not-for-production') could be accidentally deployed to production. Generating a random secret in dev mode makes each instance unique while still warning about dev-mode operation"
+    alternatives_rejected: "Hardcoded known string (security risk if deployed), require real secret even in dev mode (friction)"
+    date: 2026-03-16
+    initiative: praxis
+    confidence: high
+
+  - decision: "Five defense-in-depth security layers"
+    rationale: "No single security measure is sufficient. Layered defenses (column validation, rate limiting, timing-safe auth, error sanitization, key protection) ensure that failure of any one layer does not compromise the system"
+    alternatives_rejected: "Single auth-only security model (insufficient), per-endpoint security (inconsistent coverage)"
+    date: 2026-03-16
+    initiative: praxis
+    confidence: high
+
+  - decision: "CO Layer 5 learning pipeline with 5 pattern detectors"
+    rationale: "Without continuous learning, knowledge does not compound across sessions. The five detectors (unused_constraint, rubber_stamp, boundary_pressure, always_approved, never_reached) cover the most common constraint misconfiguration patterns"
+    alternatives_rejected: "Manual-only constraint tuning (does not scale), auto-adjusting constraints (violates human approval principle)"
+    date: 2026-03-16
+    initiative: praxis
+    confidence: high
+
+  - decision: "All learning proposals require human approval (never auto-applied)"
+    rationale: "Automatically modifying constraint configurations would undermine the human-on-the-loop principle. The pipeline generates recommendations; humans decide whether to apply them"
+    alternatives_rejected: "Auto-apply high-confidence proposals (violates CO principles), auto-apply after N sessions without objection (passive approval is not real approval)"
+    date: 2026-03-16
+    initiative: praxis
+    confidence: high
+
+  - decision: "Observation failures never propagate to main operations"
+    rationale: "Learning observation is a non-critical side-effect. If observation fails (DB unavailable, target not in domain YAML, etc.), the main operation (constraint evaluation, session management) must continue unaffected"
+    alternatives_rejected: "Fail the main operation if observation fails (too fragile), queue observations for retry (complexity without benefit)"
+    date: 2026-03-16
+    initiative: praxis
+    confidence: high
+
+  - decision: "MCP proxy implements trust as medium via tool interception"
+    rationale: "The proxy sits between AI and tools, evaluating every call against constraints BEFORE forwarding. This is the architectural realization of 'trust as medium, not camera' -- the trust layer is in the execution path, not observing from the side"
+    alternatives_rejected: "Post-hoc logging of tool calls (camera, not medium), advisory-only constraint checks (no enforcement)"
+    date: 2026-03-16
+    initiative: praxis
+    confidence: high
+
+  - decision: "Bundle serve.py binds to localhost (127.0.0.1) only"
+    rationale: "The verification bundle's embedded HTTP server is for local browser viewing only. Binding to 0.0.0.0 would expose it on the network, potentially leaking session data"
+    alternatives_rejected: "Bind to 0.0.0.0 for convenience (security risk), no serve.py at all (CORS prevents direct file:// opening)"
+    date: 2026-03-16
+    initiative: praxis
+    confidence: high

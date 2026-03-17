@@ -1,0 +1,136 @@
+name: coc
+display_name: "CO for Codegen"
+description: "Cognitive Orchestration for software development workflows. Captures architecture decisions, enforces development constraints, and provides tamper-evident deliberation logs for all coding sessions."
+version: "1.0"
+
+constraint_templates:
+  strict:
+    financial:
+      max_spend: 10.0
+    operational:
+      allowed_actions: ["read", "write", "analyze"]
+      max_actions_per_hour: 100
+    temporal:
+      max_duration_minutes: 60
+    data_access:
+      allowed_paths: ["/src/", "/tests/"]
+    communication:
+      allowed_channels: ["internal"]
+    rationale:
+      financial: "Low budget for focused analysis and small changes. Prevents accidental cost overruns during exploratory or review-only sessions."
+      operational: "No deployment or destructive actions. CI/CD pipeline handles deployment after human review."
+      temporal: "Short sessions encourage focused work and prevent context exhaustion in strict-mode tasks."
+      data_access: "Restricted to source and test directories only. Configuration, credentials, and infrastructure files are out of scope."
+      communication: "Internal only prevents accidental data leakage to external services or unauthorized channels."
+
+  moderate:
+    financial:
+      max_spend: 50.0
+    operational:
+      allowed_actions: ["read", "write", "analyze", "deploy_staging"]
+      max_actions_per_hour: 200
+    temporal:
+      max_duration_minutes: 120
+    data_access:
+      allowed_paths: ["/"]
+    communication:
+      allowed_channels: ["internal", "supervisor"]
+    rationale:
+      financial: "Standard budget for typical development sessions. Sufficient for multi-file changes and staging deployments."
+      operational: "Staging deployment allowed for integration testing. Production deployment remains gated by CI/CD and human approval."
+      temporal: "Two-hour sessions balance productivity with the need for periodic human checkpoint reviews."
+      data_access: "Full repository access enables cross-cutting refactors, configuration changes, and documentation updates."
+      communication: "Supervisor channel allows escalation of architectural decisions or risk assessments beyond the immediate session."
+
+  permissive:
+    financial:
+      max_spend: 200.0
+    operational:
+      allowed_actions: ["*"]
+      max_actions_per_hour: 500
+    temporal:
+      max_duration_minutes: 480
+    data_access:
+      allowed_paths: ["*"]
+    communication:
+      allowed_channels: ["*"]
+    rationale:
+      financial: "High budget for large-scale refactors, migrations, or greenfield implementations requiring sustained AI assistance."
+      operational: "All actions permitted for trusted, high-velocity development. Human remains on the loop via deliberation capture."
+      temporal: "Full workday sessions for major implementation efforts. Deliberation logs prevent context loss across long sessions."
+      data_access: "Unrestricted access for platform-wide changes that span source, infrastructure, and documentation."
+      communication: "All channels open for cross-team coordination during major initiatives requiring external stakeholder input."
+
+phases:
+  - name: analyze
+    display_name: "Analyze"
+    description: "Research and validate requirements"
+    approval_gate: true
+  - name: plan
+    display_name: "Plan"
+    description: "Create implementation roadmap"
+    approval_gate: true
+  - name: implement
+    display_name: "Implement"
+    description: "Build the solution"
+    approval_gate: false
+  - name: validate
+    display_name: "Validate"
+    description: "Test and verify"
+    approval_gate: true
+  - name: codify
+    display_name: "Codify"
+    description: "Capture knowledge and patterns"
+    approval_gate: false
+
+knowledge:
+  classification:
+    - type: institutional
+      content: "Architecture decisions must be recorded with alternatives considered and rationale for the chosen approach. These decisions form the project's institutional memory and prevent repeated re-evaluation of settled questions."
+      priority: P0
+    - type: institutional
+      content: "Framework-first rule: always check whether the Kailash SDK (Core, DataFlow, Nexus, Kaizen) already provides the needed capability before writing custom code. This reduces maintenance burden and ensures consistency."
+      priority: P1
+    - type: generic
+      content: "Test files should mirror the source tree structure and use pytest conventions. Integration tests go in tests/integration/, unit tests in tests/unit/."
+      priority: P2
+
+capture:
+  auto_capture:
+    - file_changes
+    - tool_calls
+  decision_types:
+    - scope
+    - architecture
+    - risk
+    - process
+  observation_targets:
+    - workflow_patterns
+    - error_patterns
+    - tool_usage
+    - constraint_evaluation
+    - held_action_resolution
+    - session_lifecycle
+
+anti_amnesia:
+  - priority: P0
+    rule: "Never commit secrets, API keys, or credentials to version control"
+    trigger: always
+  - priority: P0
+    rule: "Run tests before committing. Do not commit broken code."
+    trigger: always
+  - priority: P1
+    rule: "Follow the project's existing code conventions and patterns"
+    trigger: on_write
+
+rules:
+  - name: alternatives_required
+    type: alternatives_present
+    description: "Architecture and scope decisions must document alternatives considered"
+    params:
+      applies_to: ["architecture", "scope"]
+  - name: rationale_minimum
+    type: rationale_depth
+    description: "Decision rationales must be substantive (at least 10 words)"
+    params:
+      min_words: 10

@@ -1,0 +1,132 @@
+name: coe
+display_name: "CO for Education"
+description: "Cognitive Orchestration for student-AI collaboration with process-based assessment. Ensures academic integrity through mandatory deliberation capture of student reasoning and progressive autonomy constraints by academic year."
+version: "1.0"
+
+constraint_templates:
+  year1:
+    financial:
+      max_spend: 5.0
+    operational:
+      allowed_actions: ["read", "search"]
+      max_actions_per_hour: 50
+    temporal:
+      max_duration_minutes: 90
+    data_access:
+      allowed_paths: ["/course/"]
+    communication:
+      allowed_channels: ["internal"]
+    rationale:
+      financial: "Minimal budget reflects introductory-level tasks. Students learn fundamentals before accessing higher-cost AI capabilities."
+      operational: "Read and search only. Year 1 students must demonstrate understanding before being allowed to draft or modify content."
+      temporal: "Ninety-minute cap aligns with standard tutorial session length and prevents over-reliance on AI for foundational learning."
+      data_access: "Course materials only. Students build competence within the curriculum before accessing broader library resources."
+      communication: "Internal only ensures students engage with course-provided materials rather than unvetted external sources."
+
+  year2:
+    financial:
+      max_spend: 15.0
+    operational:
+      allowed_actions: ["read", "search", "draft"]
+      max_actions_per_hour: 100
+    temporal:
+      max_duration_minutes: 180
+    data_access:
+      allowed_paths: ["/course/", "/library/"]
+    communication:
+      allowed_channels: ["internal", "approved_sources"]
+    rationale:
+      financial: "Moderate budget supports drafting and iterative revision. Reflects increased complexity of Year 2 assignments."
+      operational: "Draft capability added. Students can now co-create content with AI while deliberation capture records their reasoning process."
+      temporal: "Three-hour sessions accommodate longer research papers and multi-source synthesis tasks."
+      data_access: "Library access added for literature review. Students learn citation practices and source evaluation with AI assistance."
+      communication: "Approved academic sources allowed for research tasks. Maintains curation while expanding information access."
+
+  year3:
+    financial:
+      max_spend: 30.0
+    operational:
+      allowed_actions: ["*"]
+      max_actions_per_hour: 200
+    temporal:
+      max_duration_minutes: 480
+    data_access:
+      allowed_paths: ["*"]
+    communication:
+      allowed_channels: ["*"]
+    rationale:
+      financial: "Full budget for capstone and dissertation-level work. Students have demonstrated responsible AI collaboration in prior years."
+      operational: "All actions permitted. Year 3 students operate with professional-level autonomy, assessed on process quality via deliberation logs."
+      temporal: "Full-day sessions for independent research and capstone projects. Process-based assessment captures reasoning throughout."
+      data_access: "Unrestricted access reflects professional research expectations. Students must demonstrate proper attribution and source evaluation."
+      communication: "All channels open for real-world research collaboration. Academic integrity is maintained through deliberation capture, not restriction."
+
+phases:
+  - name: research
+    display_name: "Research"
+    description: "Literature review and gap identification"
+    approval_gate: false
+  - name: draft
+    display_name: "Draft"
+    description: "Writing with proper attribution"
+    approval_gate: false
+  - name: review
+    display_name: "Review"
+    description: "Peer review simulation"
+    approval_gate: true
+  - name: revise
+    display_name: "Revise"
+    description: "Revision with tracked changes"
+    approval_gate: true
+
+knowledge:
+  classification:
+    - type: institutional
+      content: "Process-based assessment requires deliberation logs that demonstrate the student's reasoning journey, not just the final output. Assessors evaluate the quality of reasoning, not the polish of the product."
+      priority: P0
+    - type: institutional
+      content: "Progressive autonomy constraints by academic year are a core educational design decision. Year 1 restrictions are pedagogical, not punitive — they scaffold learning."
+      priority: P1
+    - type: generic
+      content: "Citation formats should follow the institution's style guide. When in doubt, prefer over-citation to under-citation."
+      priority: P2
+
+capture:
+  auto_capture:
+    - ai_interactions
+    - revision_history
+  decision_types:
+    - scope
+    - methodology
+    - sources
+    - interpretation
+  observation_targets:
+    - time_on_task
+    - revision_patterns
+    - source_usage
+    - constraint_evaluation
+    - held_action_resolution
+    - session_lifecycle
+
+anti_amnesia:
+  - priority: P0
+    rule: "All student work must capture deliberation showing the student's own reasoning process"
+    trigger: always
+  - priority: P0
+    rule: "AI must not produce final submissions — students must demonstrate synthesis and understanding"
+    trigger: always
+  - priority: P1
+    rule: "Cite all sources used during research. Attribution is mandatory."
+    trigger: on_write
+
+rules:
+  - name: rationale_minimum
+    type: rationale_depth
+    description: "Student reasoning must be substantive to demonstrate understanding"
+    params:
+      min_words: 15
+  - name: alternatives_required
+    type: alternatives_present
+    description: "Methodology and source decisions must document alternatives considered"
+    params:
+      applies_to: ["methodology", "sources"]
