@@ -52,13 +52,20 @@ dependencies = [
     # Firebase token verification
     "PyJWT>=2.8.0",
     "httpx>=0.25.0",
-    # Web framework and HTTP (transitive deps, pinned for deployment reliability)
+    # Transitive deps — kailash v1.0.0 on PyPI doesn't always pull these.
+    # Pinned explicitly so pip install and Docker builds are reproducible.
     "fastapi>=0.100.0",
     "uvicorn>=0.23.0",
+    "starlette>=0.27.0",
     "requests>=2.28.0",
     "aiohttp>=3.8.0",
     "aiofiles>=23.0",
-    "starlette>=0.27.0",
+    "websockets>=11.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "pynacl>=1.5.0",
+    "networkx>=3.0",
+    "bcrypt>=4.0.0",
     # System monitoring (required by kailash runtime)
     "psutil>=5.9.0",
     # Utilities
