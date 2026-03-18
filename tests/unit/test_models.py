@@ -466,7 +466,13 @@ class TestGetDb:
         from praxis.persistence import get_db
 
         db = get_db()
-        registered = {m.name for m in db.models}
+        # DataFlow API compat: newer versions use db.models, older use db._models
+        if hasattr(db, "models") and db.models:
+            registered = {m.name for m in db.models}
+        elif hasattr(db, "_models") and db._models:
+            registered = set(db._models.keys())
+        else:
+            registered = set()
         assert "Session" in registered
         assert "DeliberationRecord" in registered
         assert "ConstraintEvent" in registered
