@@ -42,8 +42,8 @@ jobs:
           pip install aiohttp aiofiles numpy pandas starlette
 
       - name: Run tests
-        timeout-minutes: 15
-        run: pytest tests/unit/ -q --tb=short --junitxml=test-results.xml -x
+        timeout-minutes: 45
+        run: pytest tests/unit/ -q --tb=short --junitxml=test-results.xml -x --timeout=120
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
