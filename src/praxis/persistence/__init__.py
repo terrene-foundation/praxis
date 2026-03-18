@@ -109,6 +109,21 @@ def reset_db() -> None:
     _tables_created = False
 
 
+def _set_db_for_testing(database_url: str) -> None:
+    """Pre-initialize the DataFlow singleton for tests.
+
+    Creates the DataFlow instance and registers models but skips
+    create_tables_sync() since tables are pre-created via raw sqlite3.
+    """
+    global _db, _models_registered, _tables_created
+    _db = DataFlow(database_url)
+    if not _models_registered:
+        _register_models(_db)
+        _models_registered = True
+    # Tables already created by raw sqlite3 in conftest — skip workflow engine
+    _tables_created = True
+
+
 __all__ = [
     "get_db",
     "reset_db",

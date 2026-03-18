@@ -54,6 +54,12 @@ def _isolated_db(monkeypatch, tmp_path):
     conn.executescript(_CREATE_TABLES_SQL)
     conn.close()
 
+    # Pre-initialize the DataFlow singleton so get_db() doesn't run
+    # the full Kailash workflow engine. Mark tables as already created.
+    from praxis.persistence import _set_db_for_testing
+
+    _set_db_for_testing(f"sqlite:///{db_path}")
+
     yield
 
     # Teardown: reset singletons so the next test starts clean
