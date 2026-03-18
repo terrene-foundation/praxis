@@ -46,6 +46,11 @@ dependencies = [
     "jcs>=0.2.1",
     # Rate limiting
     "slowapi>=0.1.9",
+    # Firebase token verification
+    "PyJWT>=2.8.0",
+    "httpx>=0.25.0",
+    # System monitoring (required by kailash runtime)
+    "psutil>=5.9.0",
     # Utilities
     "python-dotenv>=1.0.0",
     "structlog>=23.1.0",
@@ -55,6 +60,7 @@ dependencies = [
 dev = [
     # Testing (pytest>=7.2.0 removes vulnerable py dependency)
     "pytest>=7.2.0",
+    "hypothesis>=6.0.0",
     "pytest-cov>=4.0",
     "pytest-asyncio>=0.21.0",
     # Linting & Formatting
