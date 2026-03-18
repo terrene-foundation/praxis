@@ -36,7 +36,10 @@ jobs:
             ${{ runner.os }}-pip-${{ matrix.python-version }}-
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: |
+          pip install -e ".[dev]"
+          # Ensure all transitive deps are present (kailash versions vary)
+          pip install aiohttp aiofiles numpy pandas starlette
 
       - name: Run tests
         run: pytest tests/ -q --tb=short --junitxml=test-results.xml
