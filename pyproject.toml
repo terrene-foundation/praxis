@@ -49,6 +49,9 @@ dependencies = [
     # Firebase token verification
     "PyJWT>=2.8.0",
     "httpx>=0.25.0",
+    # Web framework (transitive dep of kailash-nexus, pinned for CI reliability)
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
     # System monitoring (required by kailash runtime)
     "psutil>=5.9.0",
     # Utilities
