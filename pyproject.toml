@@ -26,11 +26,14 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Application Frameworks",
 ]
 dependencies = [
-    # Kailash SDK (includes: fastapi, uvicorn, pydantic, sqlalchemy, pandas, numpy, requests, pyyaml)
-    "kailash>=0.12.5",
-    "kailash-nexus>=1.4.2",
-    "kailash-dataflow>=0.12.4",
-    "kailash-kaizen>=1.2.5",
+    # Kailash SDK — pinned to tested versions for reproducible installs
+    "kailash>=0.12.5,<2.0",
+    "kailash-nexus>=1.4.2,<2.0",
+    "kailash-dataflow>=0.12.4,<1.0",
+    "kailash-kaizen>=1.2.5,<2.0",
+    # Kailash transitive deps (pinned for CI reliability — kailash 1.0 trimmed some)
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
     # EATP SDK (trust protocol implementation)
     "eatp>=0.1.0",
     # Trust Plane (EATP reference implementation)
