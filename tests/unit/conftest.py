@@ -29,42 +29,80 @@ CREATE TABLE IF NOT EXISTS users (id TEXT, email TEXT, display_name TEXT, photo_
 """
 
 
-@pytest.fixture(autouse=True)
-def _isolated_db(monkeypatch, tmp_path):
-    """Provide an isolated SQLite database for every unit test.
+# Session-scoped DB: create ONE DataFlow instance for all unit tests.
+# Per-test isolation is achieved by DELETE FROM all tables, not re-creating DataFlow.
+_SESSION_DB_PATH = None
+_SESSION_DB_INIT = False
 
-    Uses raw sqlite3 to create tables directly — no DataFlow workflow
-    overhead. This brings per-test init from ~3s to ~5ms.
-    """
-    from praxis.config import reset_config
-    from praxis.persistence import reset_db
 
-    # Reset any cached state from a previous test
-    reset_config()
-    reset_db()
+@pytest.fixture(scope="session", autouse=True)
+def _session_db(tmp_path_factory):
+    """Create one shared database for the entire test session."""
+    global _SESSION_DB_PATH, _SESSION_DB_INIT
+    import os
 
-    db_path = tmp_path / "unit_test.db"
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path}")
-    monkeypatch.setenv("PRAXIS_API_SECRET", "test-secret-key")
-    monkeypatch.setenv("PRAXIS_KEY_DIR", str(tmp_path / "keys"))
-    monkeypatch.setenv("PRAXIS_DEV_MODE", "true")
+    db_dir = tmp_path_factory.mktemp("praxis_db")
+    db_path = db_dir / "shared_test.db"
+    _SESSION_DB_PATH = str(db_path)
 
-    # Pre-create tables with raw sqlite3 (fast)
+    os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
+    os.environ["PRAXIS_API_SECRET"] = "test-secret-key"
+    os.environ["PRAXIS_DEV_MODE"] = "true"
+    os.environ["PRAXIS_KEY_DIR"] = str(db_dir / "keys")
+
+    # Create tables with raw sqlite3 (fast)
     conn = sqlite3.connect(str(db_path))
     conn.executescript(_CREATE_TABLES_SQL)
     conn.close()
 
-    # Pre-initialize the DataFlow singleton so get_db() doesn't run
-    # the full Kailash workflow engine. Mark tables as already created.
+    # Initialize DataFlow singleton ONCE
     from praxis.persistence import _set_db_for_testing
 
     _set_db_for_testing(f"sqlite:///{db_path}")
+    _SESSION_DB_INIT = True
 
     yield
 
-    # Teardown: reset singletons so the next test starts clean
+    from praxis.persistence import reset_db
+    from praxis.config import reset_config
+
     reset_db()
     reset_config()
+
+
+_ALL_TABLES = [
+    "sessions",
+    "deliberation_records",
+    "constraint_events",
+    "trust_chain_entries",
+    "workspaces",
+    "held_actions",
+    "learning_observations",
+    "learning_patterns",
+    "learning_evolution_proposals",
+    "users",
+]
+
+
+@pytest.fixture(autouse=True)
+def _isolated_db(tmp_path):
+    """Clean all tables before each test for data isolation.
+
+    Does NOT re-create DataFlow — just DELETEs rows. ~0.5ms per test.
+    """
+    import os
+
+    os.environ["PRAXIS_KEY_DIR"] = str(tmp_path / "keys")
+
+    # Clean all tables (fast — no DataFlow init)
+    if _SESSION_DB_PATH:
+        conn = sqlite3.connect(_SESSION_DB_PATH)
+        for table in _ALL_TABLES:
+            conn.execute(f"DELETE FROM {table}")
+        conn.commit()
+        conn.close()
+
+    yield
 
 
 class MockKeyManager:
