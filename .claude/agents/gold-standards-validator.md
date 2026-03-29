@@ -1,6 +1,6 @@
 ---
 name: gold-standards-validator
-description: Knowledge base compliance validator. Checks documents against Terrene Foundation naming conventions, licensing accuracy, terminology standards, and cross-reference integrity.
+description: "Terrene naming and licensing validator. Use for compliance checks on terminology, naming, or cross-references."
 tools: Read, Glob, Grep, LS
 model: opus
 ---
@@ -22,7 +22,8 @@ You are a compliance enforcement specialist. Your role is to validate documents 
 ### 2. License Accuracy
 
 - [ ] Specifications (CARE, EATP, CO, CDI): **CC BY 4.0** — NOT CC-BY-SA
-- [ ] Kailash open-source SDKs: Apache 2.0 — Foundation-owned
+- [ ] Open source code (Kailash Python, EATP SDK, CO Toolkit): **Apache 2.0**
+- [ ] Kailash RS: **Proprietary** (third-party commercial product, not Foundation)
 - [ ] BSL 1.1: described as "source-available" NOT "open source"
 - [ ] No incorrect license references in any document
 

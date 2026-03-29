@@ -67,14 +67,16 @@ function validateFile(data) {
   const ext = path.extname(filePath).toLowerCase();
 
   const rustExts = [".rs"];
+  const pyExts = [".py"];
   const jsExts = [".ts", ".tsx", ".js", ".jsx"];
   const configExts = [".yaml", ".yml", ".json", ".env", ".sh", ".toml"];
 
   const isRust = rustExts.includes(ext);
+  const isPy = pyExts.includes(ext);
   const isJs = jsExts.includes(ext);
   const isConfig = configExts.includes(ext);
 
-  if (!isRust && !isJs && !isConfig) {
+  if (!isRust && !isPy && !isJs && !isConfig) {
     return {
       continue: true,
       exitCode: 0,
@@ -82,11 +84,20 @@ function validateFile(data) {
     };
   }
 
+  // For Edit operations (old_string → new_string), only validate the NEW
+  // content being introduced — pre-existing violations in untouched lines
+  // must not block unrelated edits.  Write operations still check the full
+  // file because the entire content is new.
+  const isEditOp = Boolean(data.tool_input?.old_string);
   let content;
-  try {
-    content = fs.readFileSync(filePath, "utf8");
-  } catch {
-    return { continue: true, exitCode: 0, messages: ["Could not read file"] };
+  if (isEditOp && data.tool_input?.new_string) {
+    content = data.tool_input.new_string;
+  } else {
+    try {
+      content = fs.readFileSync(filePath, "utf8");
+    } catch {
+      return { continue: true, exitCode: 0, messages: ["Could not read file"] };
+    }
   }
 
   // Load .env once for key-validation
@@ -101,8 +112,16 @@ function validateFile(data) {
     checkRustPatterns(content, filePath, messages);
   }
 
+  // -- Python-specific checks (.py only) ----------------------------------
+  if (isPy) {
+    const pyBlocked = checkPythonPatterns(content, filePath, messages);
+    if (pyBlocked) shouldBlock = true;
+    checkPoolPatterns(content, filePath, messages);
+    checkRuntimeLeaks(content, filePath, messages);
+  }
+
   // -- Hardcoded model detection (code files only -- configs may list models intentionally)
-  if (isRust || isJs) {
+  if (isRust || isPy || isJs) {
     const modelResult = checkHardcodedModels(content, filePath, env, isRust);
     messages.push(...modelResult.messages);
     if (modelResult.block) shouldBlock = true;
@@ -112,8 +131,9 @@ function validateFile(data) {
   checkHardcodedKeys(content, filePath, messages);
 
   // -- Stub/TODO/simulation detection (code files only) -------------------
-  if (isRust || isJs) {
-    checkStubsAndSimulations(content, filePath, messages);
+  if (isRust || isPy || isJs) {
+    const stubBlocked = checkStubsAndSimulations(content, filePath, messages);
+    if (stubBlocked) shouldBlock = true;
   }
 
   if (messages.length === 0) {
@@ -220,7 +240,7 @@ function checkRustPatterns(content, filePath, messages) {
       for (const [pat, name] of mockPatterns) {
         if (pat.test(content)) {
           messages.push(
-            `WARNING: ${name} detected in integration/e2e test. Real infrastructure preferred in Tier 2-3 tests.`,
+            `WARNING: ${name} detected in integration/e2e test. NO MOCKING in Tier 2-3 tests.`,
           );
         }
       }
@@ -248,6 +268,169 @@ function checkRustPatterns(content, filePath, messages) {
       "CRITICAL: Possible hardcoded secret in Rust code. Use std::env::var() or dotenvy.",
     );
   }
+}
+
+// =====================================================================
+// Python-specific pattern checks
+// =====================================================================
+
+function checkPythonPatterns(content, filePath, messages) {
+  if (isTestFile(filePath)) return false;
+
+  let hasBlocking = false;
+  const lines = content.split("\n");
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Skip comments
+    if (trimmed.startsWith("#")) continue;
+
+    // BLOCKING: raise NotImplementedError in production code
+    if (/\braise\s+NotImplementedError\b/.test(line)) {
+      messages.push(
+        `BLOCKED: raise NotImplementedError at ${path.basename(filePath)}:${i + 1}. ` +
+          `Implement the method fully or remove it.`,
+      );
+      hasBlocking = true;
+    }
+
+    // BLOCKING: pass as placeholder (pass with stub/placeholder comment)
+    if (
+      /^\s*pass\s*#\s*(placeholder|stub|todo|fixme|not\s*implement)/i.test(line)
+    ) {
+      messages.push(
+        `BLOCKED: stub pass at ${path.basename(filePath)}:${i + 1}. ` +
+          `Implement the logic or remove the function.`,
+      );
+      hasBlocking = true;
+    }
+
+    // WARNING: bare except: pass (silent error swallowing)
+    if (/\bexcept\s*:\s*pass\b/.test(line)) {
+      messages.push(
+        `WARNING: except: pass at ${path.basename(filePath)}:${i + 1}. ` +
+          `Handle the error or propagate it. See rules/zero-tolerance.md.`,
+      );
+    }
+
+    // WARNING: except Exception: return None (naive fallback)
+    if (/\bexcept\s+\w+.*:\s*return\s+None\b/.test(line)) {
+      messages.push(
+        `REVIEW: except...return None at ${path.basename(filePath)}:${i + 1}. ` +
+          `Verify this is not hiding a real error.`,
+      );
+    }
+  }
+
+  return hasBlocking;
+}
+
+// =====================================================================
+// Pool configuration pattern detection (DataFlow)
+// =====================================================================
+
+/**
+ * Detect pool configuration anti-patterns in Python files.
+ * WARNING only — never blocks. See rules/dataflow-pool.md.
+ */
+function checkPoolPatterns(content, filePath, messages) {
+  if (isTestFile(filePath)) return false;
+
+  const lines = content.split("\n");
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Skip comments
+    if (trimmed.startsWith("#")) continue;
+
+    // Detect pool_size set to a value > 20
+    const poolSizeMatch = line.match(/pool_size\s*[=:]\s*(\d+)/);
+    if (poolSizeMatch) {
+      const size = parseInt(poolSizeMatch[1], 10);
+      if (size > 20) {
+        messages.push(
+          `WARNING: pool_size=${size} at ${path.basename(filePath)}:${i + 1}. ` +
+            `DataFlow auto-scales pool sizes from max_connections. Consider removing ` +
+            `the explicit override unless you have a specific reason (e.g., PgBouncer).`,
+        );
+      }
+    }
+
+    // Detect max_overflow = pool_size * 2 (triples connection footprint)
+    if (
+      /max_overflow\s*=\s*pool_size\s*\*\s*2/.test(line) ||
+      /max_overflow\s*=\s*\w+\s*\*\s*2/.test(line)
+    ) {
+      messages.push(
+        `WARNING: max_overflow = pool_size * 2 at ${path.basename(filePath)}:${i + 1}. ` +
+          `This triples the connection footprint. Use max(2, pool_size // 2) instead. ` +
+          `See rules/dataflow-pool.md.`,
+      );
+    }
+  }
+
+  return false;
+}
+
+// =====================================================================
+// Unmanaged runtime construction detection (Issue #71)
+// =====================================================================
+
+/**
+ * Detect LocalRuntime() or AsyncLocalRuntime() construction without lifecycle
+ * management (close(), release(), context manager, or acquire()).
+ * WARNING only — never blocks. See rules/dataflow-pool.md Rule 6.
+ */
+function checkRuntimeLeaks(content, filePath, messages) {
+  if (isTestFile(filePath)) return false;
+
+  const lines = content.split("\n");
+  const RUNTIME_PATTERN = /(?:Local|AsyncLocal)Runtime\(\)/;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Skip comments, strings, docstrings
+    if (trimmed.startsWith("#")) continue;
+    if (trimmed.startsWith('"""') || trimmed.startsWith("'''")) continue;
+    if (trimmed.startsWith(">>>")) continue;
+
+    if (RUNTIME_PATTERN.test(line)) {
+      // Check if line has lifecycle management
+      const hasLifecycle =
+        /\bwith\s+/.test(line) ||
+        /\.close\(\)/.test(line) ||
+        /\.release\(\)/.test(line) ||
+        /\.acquire\(\)/.test(line) ||
+        /self\.runtime\s*=/.test(line) ||
+        /self\._runtime\s*=/.test(line) ||
+        /self\._async_runtime\s*=/.test(line);
+
+      // Check surrounding lines (3 lines after) for close/finally
+      let hasNearbyCleanup = false;
+      for (let j = i + 1; j < Math.min(i + 10, lines.length); j++) {
+        if (/\.close\(\)|\.release\(\)|finally:/.test(lines[j])) {
+          hasNearbyCleanup = true;
+          break;
+        }
+      }
+
+      if (!hasLifecycle && !hasNearbyCleanup) {
+        messages.push(
+          `WARNING: Unmanaged runtime at ${path.basename(filePath)}:${i + 1}. ` +
+            `Use 'with LocalRuntime() as runtime:' or call runtime.close(). ` +
+            `See rules/dataflow-pool.md Rule 6 and issue #71.`,
+        );
+      }
+    }
+  }
+
+  return false;
 }
 
 // =====================================================================
@@ -400,73 +583,102 @@ function checkHardcodedKeys(content, filePath, messages) {
 
 /**
  * Detect stubs, TODOs, placeholders, naive fallbacks, and simulated services.
- * Warn-only (never blocks) -- these are code-quality indicators.
+ *
+ * BLOCKING for production code — stubs are NOT warnings.
+ * See rules/zero-tolerance.md (Absolute Rule 2).
+ *
+ * Returns true if any blocking violation was found.
  */
 function checkStubsAndSimulations(content, filePath, messages) {
-  // Skip test files -- stubs in tests are intentional fixture data
-  if (isTestFile(filePath)) {
-    return;
-  }
+  if (isTestFile(filePath)) return false;
 
+  const isPy = filePath.endsWith(".py");
+  const isRust = filePath.endsWith(".rs");
   const lines = content.split("\n");
+  const cfgTestLine = isRust ? findCfgTestLine(lines) : -1;
 
-  // For Rust files: skip #[cfg(test)] regions (test code within source files)
-  const cfgTestLine = filePath.endsWith(".rs") ? findCfgTestLine(lines) : -1;
+  // Blocking patterns per language
+  const blockingPatterns = isRust
+    ? [
+        [/\btodo!\s*\(/, "todo!() macro — IMPLEMENT fully"],
+        [/\bunimplemented!\s*\(/, "unimplemented!() — IMPLEMENT fully"],
+        [
+          /\bpanic!\s*\(\s*"not\s+(yet\s+)?implement/i,
+          "panic!(not implemented) — IMPLEMENT fully",
+        ],
+      ]
+    : isPy
+      ? [
+          [
+            /\braise\s+NotImplementedError\b/,
+            "raise NotImplementedError — IMPLEMENT fully",
+          ],
+          [
+            /^\s*pass\s*#\s*(placeholder|stub|todo|fixme|not\s*implement)/i,
+            "stub pass — IMPLEMENT fully",
+          ],
+        ]
+      : [];
 
-  const stubPatterns = [
-    // Explicit markers
-    [/\bTODO\b/i, "TODO marker"],
-    [/\bFIXME\b/i, "FIXME marker"],
-    [/\bHACK\b/i, "HACK marker"],
-    [/\bSTUB\b/i, "STUB marker"],
-    [/\bXXX\b/, "XXX marker"],
-    // Rust stubs
-    [/\btodo!\s*\(/, "todo!() (unimplemented)"],
-    [/\bunimplemented!\s*\(/, "unimplemented!() macro"],
-    [
-      /\bpanic!\s*\(\s*"not\s+(yet\s+)?implement/i,
-      "panic with not-implemented message",
-    ],
-    // Simulated/mock data in production code
+  const warningPatterns = [
+    [/\bTODO\b/, "TODO marker — do it now"],
+    [/\bFIXME\b/, "FIXME marker — fix it now"],
+    [/\bHACK\b/, "HACK marker — implement properly"],
+    [/\bSTUB\b/, "STUB marker — implement real logic"],
+    [/\bXXX\b/, "XXX marker — resolve immediately"],
     [
       /\b(simulated?|fake|dummy|placeholder)\s*(data|response|result|value)/i,
-      "simulated data",
+      "simulated/fake data",
     ],
-    // JS-specific naive silent fallbacks
-    [/catch\s*\([^)]*\)\s*\{\s*\}/, "empty catch block (silent fallback)"],
+    [/catch\s*\([^)]*\)\s*\{\s*\}/, "empty catch block — handle the error"],
   ];
 
   const found = new Set();
+  let hasBlocking = false;
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
 
-    // Skip #[cfg(test)] regions in Rust files
-    if (cfgTestLine > 0 && i + 1 >= cfgTestLine) {
-      break; // All remaining lines are test code
-    }
+    if (cfgTestLine > 0 && i + 1 >= cfgTestLine) break;
 
-    // Skip comments
-    if (
+    const isComment =
       trimmed.startsWith("//") ||
-      trimmed.startsWith("*") ||
-      trimmed.startsWith("/*") ||
       trimmed.startsWith("///") ||
-      trimmed.startsWith("//!")
-    ) {
-      continue;
+      trimmed.startsWith("//!") ||
+      trimmed.startsWith("/*") ||
+      trimmed.startsWith("*") ||
+      trimmed.startsWith("#");
+
+    if (!isComment) {
+      for (const [pattern, label] of blockingPatterns) {
+        if (pattern.test(line) && !found.has(label)) {
+          found.add(label);
+          messages.push(
+            `BLOCKED: ${label} at ${path.basename(filePath)}:${i + 1}. ` +
+              `Stubs are NOT allowed. Implement fully or remove.`,
+          );
+          hasBlocking = true;
+        }
+      }
     }
 
-    for (const [pattern, label] of stubPatterns) {
+    for (const [pattern, label] of warningPatterns) {
       if (pattern.test(line) && !found.has(label)) {
+        if (
+          trimmed.includes("rules/") ||
+          trimmed.includes("Detection Patterns")
+        )
+          continue;
         found.add(label);
         messages.push(
-          `WARNING: ${label} at ${path.basename(filePath)}:${i + 1}. ` +
-            `Implement fully -- don't leave stubs in production code.`,
+          `WARNING: ${label} at ${path.basename(filePath)}:${i + 1}.`,
         );
       }
     }
   }
+
+  return hasBlocking;
 }
 
 // =====================================================================
@@ -479,74 +691,154 @@ function checkStubsAndSimulations(content, filePath, messages) {
  */
 function logFileObservations(content, filePath, cwd, messages) {
   const basename = path.basename(filePath);
+  const ext = path.extname(filePath).toLowerCase();
 
-  // WorkflowBuilder / runtime.execute() → workflow_pattern
-  if (
-    /WorkflowBuilder/.test(content) ||
-    /runtime\s*\.\s*execute/.test(content)
-  ) {
+  // --- Framework detection → framework_selection ---
+  // Detect which Kailash framework is being used in this file
+  const framework = detectFileFramework(content, ext);
+  if (framework) {
+    logLearningObservation(cwd, "framework_selection", {
+      framework,
+      file: basename,
+      project_type: inferProjectType(content, ext),
+    });
+  }
+
+  // --- Workflow patterns → workflow_pattern (enriched) ---
+  // Capture actual structure: node types, connections, runtime choice
+  const nodeMatches = content.match(/add_node\s*\(\s*["'](\w+)["']/g);
+  const nodeTypes = nodeMatches
+    ? [
+        ...new Set(
+          nodeMatches
+            .map((m) => {
+              const match = m.match(/add_node\s*\(\s*["'](\w+)["']/);
+              return match ? match[1] : null;
+            })
+            .filter(Boolean),
+        ),
+      ]
+    : [];
+
+  const connectionMatches = content.match(
+    /connect\s*\(\s*["'](\w+)["']\s*,\s*["'](\w+)["']/g,
+  );
+  const connections = connectionMatches
+    ? connectionMatches
+        .map((m) => {
+          const match = m.match(
+            /connect\s*\(\s*["'](\w+)["']\s*,\s*["'](\w+)["']/,
+          );
+          return match ? { from: match[1], to: match[2] } : null;
+        })
+        .filter(Boolean)
+    : [];
+
+  const hasBuilder = /WorkflowBuilder/.test(content);
+  const hasCycles = /enable_cycles|cyclic/.test(content);
+  const runtimeType = /AsyncLocalRuntime/.test(content)
+    ? "async"
+    : /LocalRuntime/.test(content)
+      ? "sync"
+      : null;
+
+  if (hasBuilder || nodeTypes.length > 0) {
     logLearningObservation(cwd, "workflow_pattern", {
-      pattern_type: /WorkflowBuilder/.test(content)
-        ? "workflow_builder"
-        : "runtime_execute",
+      node_types: nodeTypes,
+      connections,
+      has_cycles: hasCycles,
+      runtime: runtimeType,
+      node_count: nodeTypes.length,
       file: basename,
     });
   }
 
-  // add_node() calls → node_usage
-  const nodeMatches = content.match(/add_node\s*\(\s*["'](\w+)["']/g);
-  if (nodeMatches && nodeMatches.length > 0) {
-    const nodeTypes = [
-      ...new Set(
-        nodeMatches
-          .map((m) => {
-            const match = m.match(/add_node\s*\(\s*["'](\w+)["']/);
-            return match ? match[1] : null;
-          })
-          .filter(Boolean),
-      ),
-    ];
+  // --- Node usage (individual node types for frequency tracking) ---
+  if (nodeTypes.length > 0) {
     logLearningObservation(cwd, "node_usage", {
       node_types: nodeTypes,
       file: basename,
     });
   }
 
-  // @db.model → dataflow_model
-  const modelMatches = content.match(/@db\.model[\s\S]*?class\s+(\w+)/g);
-  if (modelMatches) {
-    for (const m of modelMatches) {
-      const nameMatch = m.match(/class\s+(\w+)/);
-      if (nameMatch) {
-        logLearningObservation(cwd, "dataflow_model", {
-          model_name: nameMatch[1],
-          file: basename,
-        });
-      }
+  // --- DataFlow model detection → dataflow_model ---
+  const modelDefs = content.match(/@db\.model[\s\S]*?class\s+(\w+)/g);
+  if (modelDefs) {
+    const modelNames = modelDefs
+      .map((m) => {
+        const n = m.match(/class\s+(\w+)/);
+        return n ? n[1] : null;
+      })
+      .filter(Boolean);
+    if (modelNames.length > 0) {
+      logLearningObservation(cwd, "dataflow_model", {
+        model_names: modelNames,
+        model_count: modelNames.length,
+        file: basename,
+      });
     }
   }
 
-  // Stubs/TODOs detected → error_occurrence (stub_detected)
-  if (
-    messages.some((m) =>
-      /TODO marker|FIXME marker|STUB marker|todo!\(\)|unimplemented!\(\)/.test(
-        m,
-      ),
-    )
-  ) {
+  // --- Error observations from validation messages ---
+  const blockMessages = messages.filter(
+    (m) => m.startsWith("BLOCKED") || m.startsWith("CRITICAL"),
+  );
+  const warnMessages = messages.filter((m) => m.startsWith("WARNING"));
+
+  if (blockMessages.length > 0) {
     logLearningObservation(cwd, "error_occurrence", {
-      error_type: "stub_detected",
+      error_type: "validation_block",
+      errors: blockMessages,
       file: basename,
     });
   }
 
-  // Hardcoded model name detected → error_occurrence (hardcoded_model)
-  if (messages.some((m) => /Hardcoded model/.test(m))) {
-    logLearningObservation(cwd, "error_occurrence", {
-      error_type: "hardcoded_model",
+  // --- Track error_fix: file was edited and now passes (no blocks) ---
+  if (
+    blockMessages.length === 0 &&
+    warnMessages.length === 0 &&
+    nodeTypes.length > 0
+  ) {
+    // Clean file with actual code patterns = potential fix if prior error existed
+    logLearningObservation(cwd, "error_fix", {
+      fix_type: "clean_validation",
       file: basename,
+      patterns_present: nodeTypes.length,
     });
   }
+}
+
+/**
+ * Detect which Kailash framework a file uses.
+ * Returns: "dataflow" | "nexus" | "kaizen" | "core-sdk" | null
+ */
+function detectFileFramework(content, ext) {
+  if (ext === ".py") {
+    if (/@db\.model/.test(content) || /from dataflow/.test(content))
+      return "dataflow";
+    if (/from nexus/.test(content) || /Nexus\(/.test(content)) return "nexus";
+    if (/from kaizen/.test(content) || /BaseAgent/.test(content))
+      return "kaizen";
+    if (/WorkflowBuilder/.test(content) || /LocalRuntime/.test(content))
+      return "core-sdk";
+  } else if (ext === ".rs") {
+    if (/kailash_dataflow|dataflow::/.test(content)) return "dataflow";
+    if (/kailash_nexus|nexus::/.test(content)) return "nexus";
+    if (/kailash_kaizen|kaizen::/.test(content)) return "kaizen";
+    if (/kailash_core|WorkflowBuilder/.test(content)) return "core-sdk";
+  }
+  return null;
+}
+
+/**
+ * Infer project type from content patterns.
+ */
+function inferProjectType(content, ext) {
+  if (/FastAPI|Nexus\(|axum::Router/.test(content)) return "api";
+  if (/BaseAgent|ReActAgent|Pipeline\.router/.test(content)) return "agent";
+  if (/@db\.model|DataFlow/.test(content)) return "data";
+  if (/WorkflowBuilder/.test(content)) return "workflow";
+  return "general";
 }
 
 // =====================================================================

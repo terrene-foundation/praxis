@@ -2,10 +2,11 @@
 
 ## Scope
 
-These rules apply when working with trust-plane and EATP store code:
+These rules apply when editing:
 
-- `**/trustplane/**`
-- `**/eatp/store/**`
+- `src/kailash/trust/plane/**`
+- `src/kailash/trust/_locking.py`
+- `src/kailash/trust/chain_store/**`
 
 These rules supplement `.claude/rules/security.md`. Both apply to trust-plane files.
 Violations during code review by intermediate-reviewer are BLOCK-level findings.
@@ -16,7 +17,7 @@ Violations during code review by intermediate-reviewer are BLOCK-level findings.
 
 ```python
 # DO:
-from trustplane._locking import safe_read_json, safe_open
+from kailash.trust._locking import safe_read_json, safe_open
 data = safe_read_json(path)
 
 # DO NOT:
@@ -31,7 +32,7 @@ data = json.loads(path.read_text())  # No symlink protection, no fd safety
 
 ```python
 # DO:
-from trustplane._locking import validate_id
+from kailash.trust._locking import validate_id
 validate_id(record_id)  # Raises ValueError on "../", "/", null bytes, etc.
 path = store_dir / f"{record_id}.json"
 
@@ -100,7 +101,7 @@ db_path.touch()  # Default permissions may be world-readable
 
 ```python
 # DO:
-from trustplane._locking import atomic_write
+from kailash.trust._locking import atomic_write
 atomic_write(path, json.dumps(record.to_dict()))
 
 # DO NOT:
@@ -176,7 +177,43 @@ class MultiSigPolicy:
     ...
 ```
 
-**Why**: Without `frozen=True`, an attacker with object reference can bypass `__post_init__` validation by directly setting fields.
+**Why**: Without `frozen=True`, an attacker with object reference can bypass `__post_init__` validation by directly setting fields. This applies to ALL five constraint sub-dataclasses (`OperationalConstraints`, `DataAccessConstraints`, `FinancialConstraints`, `TemporalConstraints`, `CommunicationConstraints`) — all must be `frozen=True`. Use `object.__setattr__` in `__post_init__` if field normalization is needed (e.g., `DataAccessConstraints`).
+
+### 6. MUST NOT Pass Unvalidated Cost Values to Budget Checks
+
+```python
+# DO:
+import math
+action_cost = float(ctx.get("cost", 0.0))
+if not math.isfinite(action_cost) or action_cost < 0:
+    return Verdict.BLOCKED  # Fail-closed on NaN/Inf/negative
+
+# DO NOT:
+action_cost = float(ctx.get("cost", 0.0))
+if action_cost > limit:  # NaN > limit is always False — budget bypassed!
+    return Verdict.BLOCKED
+```
+
+**Why**: `NaN` bypasses all numeric comparisons (`NaN > X` is always `False`). If `NaN` enters `session_cost` via `+=`, it permanently poisons the accumulator — all future budget checks pass. Every path that accepts a cost value (`check()`, `record_action()`, `from_dict()`) MUST validate with `math.isfinite()`.
+
+### 7. MUST NOT Catch Bare `KeyError` Where `RecordNotFoundError` Is Intended
+
+```python
+# DO:
+from kailash.trust.plane.exceptions import RecordNotFoundError
+try:
+    delegate = store.get_delegate(did)
+except RecordNotFoundError:
+    pass  # Already gone
+
+# DO NOT:
+try:
+    delegate = store.get_delegate(did)
+except KeyError:  # Too broad after dual-hierarchy change
+    pass
+```
+
+**Why**: `RecordNotFoundError` inherits from both `TrustPlaneStoreError` and `KeyError`. Bare `except KeyError` now catches store errors, potentially swallowing unrelated dict lookup failures or corrupted-record exceptions.
 
 ### 8. MUST: Use `normalize_resource_path()` for All Constraint Pattern Storage and Comparison
 
@@ -184,7 +221,7 @@ All constraint patterns and resource paths MUST be normalized via `normalize_res
 
 ```python
 # DO:
-from trustplane.pathutils import normalize_resource_path
+from kailash.trust.pathutils import normalize_resource_path
 norm = normalize_resource_path(user_path)
 
 # DO NOT:
@@ -196,5 +233,7 @@ norm = Path(user_path).as_posix()   # Doesn't collapse double slashes
 
 ## Cross-References
 
+- `src/kailash/trust/plane/ (security patterns documented in .claude/rules/trust-plane-security.md)` — Full security pattern inventory (13 patterns) and Store Security Contract
+- `src/kailash/trust/plane/store/__init__.py` — Store Security Contract as protocol docstring (created in TODO-09)
 - `.claude/rules/security.md` — Global security rules (secrets, injection, input validation)
 - `.claude/rules/eatp.md` — EATP SDK conventions (dataclasses, error hierarchy, cryptography)

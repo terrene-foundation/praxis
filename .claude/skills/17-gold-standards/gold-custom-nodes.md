@@ -47,7 +47,7 @@ class MyCustomNode(Node):
                 type=dict,
                 required=False,
                 default=None,
-                description="Optional metadata (Core SDK v0.10.3+)"
+                description="Optional metadata (current version)"
             )
         }
 
@@ -92,7 +92,7 @@ class MyCustomNode(Node):
 
 ### Available Parameter Names
 
-You can use any parameter name including `metadata` (Core SDK v0.10.3+):
+You can use any parameter name including `metadata` (current version):
 
 ```python
 def get_parameters(self):
@@ -132,5 +132,6 @@ def run(self, **kwargs):
 
 ## Documentation
 
+- **Custom Nodes**: [`contrib/3-development/05-custom-nodes.md`](../../../../contrib/3-development/05-custom-nodes.md)
 
 <!-- Trigger Keywords: create custom node, custom node standard, node development, custom node gold standard -->

@@ -70,7 +70,7 @@ Production patterns, enterprise features, tool calling, observability, memory sy
 26. **[kaizen-streaming.md](kaizen-streaming.md)** - Streaming responses, real-time output
 27. **[kaizen-testing-patterns.md](kaizen-testing-patterns.md)** - 3-tier testing, fixtures, standardized tests
 
-**Testing**: All patterns use 3-tier strategy (Unit → Ollama → OpenAI), NO MOCKING in Tiers 2-3
+**Testing**: All patterns use 3-tier strategy (Unit → Ollama → OpenAI), Real infrastructure recommended in Tiers 2-3
 
 ---
 
@@ -131,16 +131,18 @@ Production patterns, enterprise features, tool calling, observability, memory sy
 ## Critical References
 
 
+
+
 ### Quick References
 - **Specialist Agent**: `.claude/agents/frameworks/kaizen-specialist.md` (comprehensive reference table)
-- **Examples**: `kaizen/examples/` (35+ working examples)
+- **Examples**: the Kaizen examples (35+ working examples)
 
 ### Key Content Sources
 - **Multi-Modal Pitfalls**: kaizen-specialist.md lines 301-373 (CRITICAL)
 - **A2A Protocol**: kaizen-specialist.md lines 115-165
 - **UX Improvements**: kaizen-specialist.md lines 249-298
 - **Quickstart Template**: kaizen-specialist.md lines 489-520
-- **Test Fixtures**: `kaizen/tests/conftest.py`
+- **Test Fixtures**: `tests/conftest.py`
 
 ---
 
@@ -188,7 +190,7 @@ analysis = agent2.analyze(findings)
 ### Vision Pattern (Watch for Pitfalls!)
 
 ```python
-from kaizen.agents import VisionAgent, VisionAgentConfig
+from kaizen_agents.agents import VisionAgent, VisionAgentConfig
 
 config = VisionAgentConfig(llm_provider="ollama", model="bakllava")
 agent = VisionAgent(config=config)
@@ -228,7 +230,7 @@ print(result['answer'])          # Key is 'answer', NOT 'response'
 - ❌ Use 'prompt' parameter with VisionAgent (use 'question')
 - ❌ Pass base64 strings to Ollama (use file paths)
 - ❌ Access 'response' key from VisionAgent (use 'answer')
-- ❌ Skip real infrastructure testing (NO MOCKING in Tiers 2-3)
+- ❌ Skip real infrastructure testing (Real infrastructure recommended in Tiers 2-3)
 
 ---
 

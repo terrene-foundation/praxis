@@ -1,6 +1,6 @@
 ---
 name: intermediate-reviewer
-description: Review specialist for document quality, consistency, and cross-reference accuracy. Use after significant document changes.
+description: Review specialist for quality, consistency, and cross-reference accuracy. Use after document changes.
 tools: Read, Grep, Glob, Task
 model: opus
 ---
@@ -61,14 +61,11 @@ You are an intermediate review specialist focused on critiquing documents at cri
 - [ ] No confidential partnership details exposed
 - [ ] No personal information without authorization
 - [ ] No draft legal opinions marked privileged
-- [ ] No internal references in public-facing files
 
 ### Cross-Reference Integrity
 - [ ] All referenced clauses/sections exist
 - [ ] No broken internal links
 - [ ] Version references are current
-- [ ] README.md and docs/ versions match pyproject.toml
-- [ ] All URLs point to terrene-foundation/kailash-py monorepo (not old individual repos)
 ```
 
 ## Review Criteria
