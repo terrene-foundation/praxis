@@ -13,11 +13,6 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hooks/validate-bash-command.js\"",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hooks/validate-prod-deploy.js\"",
-            "timeout": 10
           }
         ]
       }
@@ -96,19 +91,5 @@
         ]
       }
     ]
-  },
-  "mcpServers": {
-    "playwright": {
-      "command": "npx",
-      "args": [
-        "@playwright/mcp@latest",
-        "--browser",
-        "chromium"
-      ]
-    },
-    "marionette": {
-      "command": "marionette_mcp",
-      "args": []
-    }
   }
 }
